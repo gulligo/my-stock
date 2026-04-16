@@ -5,55 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나의 주식 관리 앱</title>
     <style>
+        /* 기본 스타일 */
         * { box-sizing: border-box; }
-        body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; }
+        body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; }
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; font-size: 18px; margin-top: 0; }
+        
+        /* 요약 영역 */
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
         .summary-value { font-size: 16px; font-weight: bold; }
+        
+        /* 입력 영역 */
         .input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
-        input[type="text"], input[type="number"], input[type="date"] {
-            padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%;
-        }
+        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%; }
         input#current { background-color: #fff9c4; font-weight: bold; color: #d32f2f; border: 2px solid #ffeb3b; }
         .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .date-label { font-size: 13px; color: #555; margin-bottom: 3px; font-weight: bold; }
-        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; width: 100%; }
-        #status-msg { font-size: 13px; font-weight: bold; min-height: 18px; margin-bottom: 5px; }
+        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; }
 
-        /* 종목 카드 */
-        .stock-item {
-            background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;
-            border-left: 5px solid #28a745; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            position: relative;
-        }
-        .stock-item.sold {
-            border-left-color: #aaa; background: #f9f9f9; opacity: 0.85;
-        }
-        .stock-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .stock-name { font-weight: bold; font-size: 16px; }
-        .stock-badge {
-            font-size: 11px; padding: 2px 8px; border-radius: 20px;
-            background: #e8f5e9; color: #2e7d32; font-weight: bold;
-        }
-        .stock-badge.sold-badge { background: #f5f5f5; color: #888; }
-        .stock-meta { font-size: 12px; color: #888; margin-top: 5px; }
-        .stock-delete { background: none; border: none; color: #ccc; cursor: pointer; font-size: 18px; padding: 0 4px; }
-        .stock-delete:hover { color: red; }
-
-        /* 더보기 버튼 */
-        .more-btn {
-            display: block; width: 100%; padding: 12px;
-            background: #f0f2f5; border: 1px dashed #bbb; border-radius: 8px;
-            font-size: 14px; color: #555; cursor: pointer; margin-top: 5px;
-            text-align: center;
-        }
-        .more-btn:hover { background: #e8eaf0; }
-
+        /* 종목 리스트 (접이식) */
+        .stock-item { background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
+        .stock-summary { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; background: #fff; }
+        .stock-details { padding: 0 15px 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
+        .stock-details div { margin-top: 8px; }
+        
+        /* 수익률 색상 */
         .red { color: #d9534f; }
         .blue { color: #0275d8; }
-        .section-title { font-size: 14px; font-weight: bold; color: #888; margin: 10px 0 6px; }
+        .section-title { font-size: 14px; font-weight: bold; color: #888; margin: 15px 0 8px; }
+        
+        /* 더보기 버튼 */
+        .more-btn { width: 100%; padding: 12px; background: #e9ecef; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 10px; }
+        .delete-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -63,89 +47,60 @@
     <div class="summary-grid">
         <div class="summary-item"><span>총 매수</span><div id="totalBuy" class="summary-value">0원</div></div>
         <div class="summary-item"><span>총 평가</span><div id="totalEval" class="summary-value">0원</div></div>
-        <div class="summary-item" style="grid-column: span 2;"><span>총 손익</span><div id="totalProfit" class="summary-value">0원 (0%)</div></div>
+        <div id="totalProfitBox" class="summary-item" style="grid-column: span 2;"><span>총 손익</span><div id="totalProfit" class="summary-value">0원 (0%)</div></div>
     </div>
 </div>
 
 <div class="card">
-    <h2>📈 종목 등록 (번호 6자리 입력)</h2>
+    <h2>📈 종목 등록</h2>
     <div class="input-box">
-        <input type="text" id="name" placeholder="종목명 (예: 삼성전자)">
-        <input type="number" id="code" placeholder="종목번호 6자리 (예: 005930)" oninput="handleInput(this)">
-        <div id="status-msg"></div>
+        <input type="text" id="name" placeholder="종목명">
+        <input type="number" id="code" placeholder="종목번호 6자리" oninput="handleInput(this)">
+        <div id="status-msg" style="font-size:12px; font-weight:bold;"></div>
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="qty" placeholder="수량">
-        <input type="number" id="current" placeholder="현재가 (자동 입력 대기중)">
-
+        <input type="number" id="current" placeholder="현재가 (시세 대기)">
         <div class="date-row">
-            <div>
-                <div class="date-label">📅 매수일</div>
-                <input type="date" id="buyDate">
-            </div>
-            <div>
-                <div class="date-label">📅 매도일 (선택)</div>
-                <input type="date" id="sellDate">
-            </div>
+            <div><div class="date-label">📅 매수일</div><input type="date" id="buyDate"></div>
+            <div><div class="date-label">📅 매도일 (선택)</div><input type="date" id="sellDate"></div>
         </div>
     </div>
     <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
 </div>
 
-<div id="stockList"></div>
+<div id="activeList"></div>
+<div id="soldSection" style="display:none;">
+    <button class="more-btn" onclick="toggleSold()">📂 거래 완료 종목 보기 ▼</button>
+    <div id="soldList" style="display:none; margin-top:10px;"></div>
+</div>
 
 <script>
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
-    let showAll = false;
 
     window.onload = function() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('buyDate').value = today;
+        document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
         render();
     };
 
-    function handleInput(el) {
-        if (el.value.length === 6) fetchPrice(el.value);
-    }
+    function handleInput(el) { if (el.value.length === 6) fetchPrice(el.value); }
 
     async function fetchPrice(code) {
-        const currentInput = document.getElementById('current');
-        const statusMsg = document.getElementById('status-msg');
-        statusMsg.style.color = "#007bff";
-        statusMsg.innerText = "⌛ 시세 정보를 가져오는 중입니다...";
-
-        const tryFetch = async (suffix) => {
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.${suffix}`;
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
-            const result = JSON.parse(data.contents);
-            return result.chart.result[0].meta.regularMarketPrice;
-        };
-
+        const msg = document.getElementById('status-msg');
+        msg.innerText = "⌛ 시세 조회 중...";
         try {
-            const price = await tryFetch('KS');
-            if (!price) throw new Error();
-            currentInput.value = price;
-            statusMsg.style.color = "#28a745";
-            statusMsg.innerText = "✅ 시세를 성공적으로 가져왔습니다!";
-        } catch {
-            try {
-                const price = await tryFetch('KQ');
-                if (!price) throw new Error();
-                currentInput.value = price;
-                statusMsg.style.color = "#28a745";
-                statusMsg.innerText = "✅ 시세를 성공적으로 가져왔습니다!";
-            } catch {
-                statusMsg.style.color = "#d9534f";
-                statusMsg.innerText = "❌ 자동 입력 실패. 직접 입력해 주세요.";
-            }
-        }
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KS`;
+            const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const res = await fetch(proxy);
+            const data = await res.json();
+            const price = JSON.parse(data.contents).chart.result[0].meta.regularMarketPrice;
+            document.getElementById('current').value = price;
+            msg.innerText = "✅ 조회 완료";
+        } catch { msg.innerText = "❌ 직접 입력 필요"; }
     }
 
     function saveStock() {
         const stock = {
             id: Date.now(),
-            savedAt: Date.now(),
             name: document.getElementById('name').value,
             code: document.getElementById('code').value,
             price: Number(document.getElementById('price').value),
@@ -154,83 +109,73 @@
             buyDate: document.getElementById('buyDate').value,
             sellDate: document.getElementById('sellDate').value
         };
-        if (!stock.name || !stock.price || !stock.current) return alert("빈칸을 모두 채워주세요!");
-
+        if (!stock.name || !stock.price) return alert("필수 정보를 입력해주세요.");
         stocks.unshift(stock);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
-
-        ['name','code','price','qty','current','sellDate'].forEach(id => document.getElementById(id).value = '');
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('buyDate').value = today;
-        document.getElementById('status-msg').innerText = '';
-
-        render();
-        alert("저장되었습니다!");
+        location.reload();
     }
 
     function render() {
-        const listDiv = document.getElementById('stockList');
-        listDiv.innerHTML = '';
+        const activeList = document.getElementById('activeList');
+        const soldList = document.getElementById('soldList');
+        activeList.innerHTML = '<div class="section-title">🟢 거래중 종목</div>';
+        soldList.innerHTML = '';
 
-        const active = stocks.filter(s => !s.sellDate);
-        const sold = stocks.filter(s => s.sellDate);
+        let tBuy = 0, tEval = 0;
+        let hasSold = false;
 
-        let totalBuy = 0, totalEval = 0;
-        active.forEach(s => {
-            totalBuy += s.price * s.qty;
-            totalEval += s.current * s.qty;
+        stocks.forEach(s => {
+            const profit = (s.current - s.price) * s.qty;
+            const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
+            const html = `
+                <div class="stock-item">
+                    <div class="stock-summary" onclick="toggleDetail(${s.id})">
+                        <span>${s.name}</span>
+                        <span class="${profit >= 0 ? 'red' : 'blue'}">${rate}%</span>
+                    </div>
+                    <div id="detail-${s.id}" class="stock-details">
+                        <button class="delete-btn" onclick="deleteStock(${s.id})">삭제</button>
+                        <div><b>종목코드:</b> ${s.code}</div>
+                        <div><b>수량:</b> ${s.qty}주</div>
+                        <div><b>매수단가:</b> ${s.price.toLocaleString()}원</div>
+                        <div><b>현재가:</b> ${s.current.toLocaleString()}원</div>
+                        <div><b>평가손익:</b> <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원</span></div>
+                        <div style="font-size:12px; color:#888;">매수일: ${s.buyDate} ${s.sellDate ? '| 매도일: '+s.sellDate : ''}</div>
+                    </div>
+                </div>`;
+
+            if (s.sellDate) {
+                soldList.innerHTML += html;
+                hasSold = true;
+            } else {
+                activeList.innerHTML += html;
+                tBuy += s.price * s.qty;
+                tEval += s.current * s.qty;
+            }
         });
 
-        const totalProfit = totalEval - totalBuy;
-        const totalRate = totalBuy === 0 ? 0 : ((totalProfit / totalBuy) * 100).toFixed(2);
-        document.getElementById('totalBuy').innerText = totalBuy.toLocaleString() + '원';
-        document.getElementById('totalEval').innerText = totalEval.toLocaleString() + '원';
-        document.getElementById('totalProfit').innerText = `${totalProfit.toLocaleString()}원 (${totalRate}%)`;
-        document.getElementById('totalProfit').className = 'summary-value ' + (totalProfit >= 0 ? 'red' : 'blue');
+        if (hasSold) document.getElementById('soldSection').style.display = 'block';
 
-        if (active.length > 0) {
-            listDiv.innerHTML += `<div class="section-title">🟢 거래중 (${active.length}종목)</div>`;
-            active.forEach(s => listDiv.innerHTML += stockHTML(s, false));
-        } else {
-            listDiv.innerHTML += `<div class="section-title" style="color:#bbb;">거래중인 종목이 없습니다.</div>`;
-        }
-
-        if (sold.length > 0) {
-            if (!showAll) {
-                listDiv.innerHTML += `<button class="more-btn" onclick="toggleAll()">📂 거래 완료 종목 더보기 (${sold.length}건) ▼</button>`;
-            } else {
-                listDiv.innerHTML += `<div class="section-title">⬜ 거래 완료 (${sold.length}건)</div>`;
-                sold.forEach(s => listDiv.innerHTML += stockHTML(s, true));
-                listDiv.innerHTML += `<button class="more-btn" onclick="toggleAll()">▲ 접기</button>`;
-            }
-        }
+        const tProfit = tEval - tBuy;
+        const tRate = tBuy === 0 ? 0 : ((tProfit / tBuy) * 100).toFixed(2);
+        document.getElementById('totalBuy').innerText = tBuy.toLocaleString() + '원';
+        document.getElementById('totalEval').innerText = tEval.toLocaleString() + '원';
+        document.getElementById('totalProfit').innerText = `${tProfit.toLocaleString()}원 (${tRate}%)`;
+        document.getElementById('totalProfit').className = 'summary-value ' + (tProfit >= 0 ? 'red' : 'blue');
     }
 
-    function stockHTML(s, isSold) {
-        const profit = (s.current - s.price) * s.qty;
-        const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
-        const buyStr = s.buyDate ? `매수: ${s.buyDate}` : '';
-        const sellStr = s.sellDate ? ` | 매도: ${s.sellDate}` : '';
-        return `
-        <div class="stock-item ${isSold ? 'sold' : ''}">
-            <div class="stock-header">
-                <span class="stock-name">${s.name} <span style="font-weight:normal;font-size:13px;color:#aaa;">${s.code || ''}</span></span>
-                <span class="${isSold ? 'stock-badge sold-badge' : 'stock-badge'}">${isSold ? '완료' : '거래중'}</span>
-            </div>
-            <div>${s.qty}주 · 단가 ${s.price.toLocaleString()}원 · 현재가 ${s.current.toLocaleString()}원</div>
-            <div>수익: <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원 (${rate}%)</span></div>
-            <div class="stock-meta">${buyStr}${sellStr}</div>
-            <button class="stock-delete" onclick="deleteStock(${s.id})" style="position:absolute;top:10px;right:10px;">🗑</button>
-        </div>`;
+    function toggleDetail(id) {
+        const el = document.getElementById('detail-' + id);
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
     }
 
-    function toggleAll() {
-        showAll = !showAll;
-        render();
+    function toggleSold() {
+        const el = document.getElementById('soldList');
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
     }
 
     function deleteStock(id) {
-        if (confirm("정말 삭제할까요?")) {
+        if (confirm("삭제하시겠습니까?")) {
             stocks = stocks.filter(s => s.id !== id);
             localStorage.setItem('myStocks', JSON.stringify(stocks));
             render();
