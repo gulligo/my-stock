@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>주식 관리 장부</title>
+    <title>나의 주식 장부</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f4f8; margin: 0; }
         .card { background: white; padding: 22px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
@@ -34,7 +34,7 @@
 <div class="card">
     <h2>📈 종목 등록</h2>
     <div class="input-box">
-        <input type="text" id="name" placeholder="종목명 입력 (예: 삼성전자)" onchange="autoSearch()">
+        <input type="text" id="name" placeholder="종목명 (예: 삼성전자)" onchange="autoSearch()">
         <div id="status-msg"></div>
         <input type="text" id="code" placeholder="종목번호 (자동)" readonly>
         <input type="number" id="current" placeholder="현재시세 (자동)" readonly>
@@ -58,13 +58,11 @@
 
         if (!name) return;
         statusMsg.style.color = "#007bff";
-        statusMsg.innerText = "🔍 검색 경로 최적화 중...";
+        statusMsg.innerText = "🔍 최신 정보를 가져오는 중...";
 
-        // 한국 종목 검색을 위해 이름을 변환 (삼성전자 -> 005930.KS 방식)
         const searchQuery = name === "삼성전자" ? "005930.KS" : name;
 
         try {
-            // 가장 강력한 데이터 경로 사용
             const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + searchQuery)}`);
             const data = await res.json();
             const result = JSON.parse(data.contents);
@@ -76,89 +74,70 @@
                 codeInput.value = symbol.split('.')[0];
                 currentInput.value = price;
                 statusMsg.style.color = "#28a745";
-                statusMsg.innerText = "✅ 정보를 성공적으로 찾았습니다!";
+                statusMsg.innerText = "✅ 자동 입력 완료!";
             }
         } catch (e) {
-            // 경로 2: 일반 검색 시도
-            try {
-                const sRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=' + name)}`);
-                const sData = await sRes.json();
-                const sResult = JSON.parse(sData.contents);
-                const stock = sResult.quotes.find(q => q.symbol.includes('.KS') || q.symbol.includes('.KQ')) || sResult.quotes[0];
-                
-                codeInput.value = stock.symbol.split('.')[0];
-                
-                const pRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + stock.symbol)}`);
-                const pData = await pRes.json();
-                const pResult = JSON.parse(pData.contents);
-                currentInput.value = pResult.chart.result[0].meta.regularMarketPrice;
-                
-                statusMsg.style.color = "#28a745";
-                statusMsg.innerText = "✅ 재검색으로 정보를 찾았습니다!";
-            } catch (err) {
-                statusMsg.style.color = "#d9534f";
-                statusMsg.innerText = "⚠️ 일시적 오류... 잠시 후 다시 검색됩니다.";
-                setTimeout(autoSearch, 2000);
-            }
+            statusMsg.style.color = "#f0ad4e";
+            statusMsg.innerText = "⚠️ 다시 입력해주시거나 잠시 기다려주세요.";
         }
     }
 
     function saveStock() {
+        const nameVal = document.getElementById('name').value.trim();
+        const priceVal = Number(document.getElementById('price').value);
+        const qtyVal = Number(document.getElementById('qty').value);
+        const currentVal = Number(document.getElementById('current').value);
+        const codeVal = document.getElementById('code').value;
+
+        if(!nameVal || !priceVal || !qtyVal) return alert("매수가와 수량을 채워주세요!");
+
         const s = {
             id: Date.now(),
-            name: document.getElementById('name').value,
-            code: document.getElementById('code').value,
-            price: Number(document.getElementById('price').value),
-            qty: Number(document.getElementById('qty').value),
-            current: Number(document.getElementById('current').value)
+            name: nameVal, // 사용자가 입력한 이름만 저장
+            code: codeVal,
+            price: priceVal,
+            qty: qtyVal,
+            current: currentVal
         };
-        if(!s.name || !s.price || !s.qty) return alert("매수가와 수량을 채워주세요!");
+
         stocks.push(s);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
         render();
+        
         ['name','code','price','qty','current'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('status-msg').innerText = '';
-        alert("장부에 저장되었습니다!");
     }
 
     function render() {
         let tBuy = 0, tEval = 0;
         const listDiv = document.getElementById('stockList');
         listDiv.innerHTML = '';
+
         stocks.forEach(s => {
-            tBuy += (s.price * s.qty);
-            tEval += (s.current * s.qty);
-            const profit = (s.current - s.price) * s.qty;
-            const rate = s.price === 0 ? 0 : ((s.current - s.price) / s.price * 100).toFixed(2);
+            const buyTotal = s.price * s.qty;
+            const evalTotal = s.current * s.qty;
+            tBuy += buyTotal;
+            tEval += evalTotal;
+
+            const profit = evalTotal - buyTotal;
+            const rate = buyTotal === 0 ? 0 : (profit / buyTotal * 100).toFixed(2);
+            
             listDiv.innerHTML += `<div class="stock-item">
-                <div style="display:flex; justify-content:space-between;">
-                    <div><b style="font-size:20px;">${s.name}</b> <small>(${s.code})</small><br>${s.qty}주 보유</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <b style="font-size:20px; color:#1a1a1a;">${s.name}</b><br>
+                        <span style="color:#666; font-size:15px;">${s.qty.toLocaleString()}주 보유</span>
+                    </div>
                     <div style="text-align:right">
                         <span class="${profit >= 0 ? 'red' : 'blue'}" style="font-weight:bold; font-size:18px;">
-                            ${profit > 0 ? '+' : ''}${profit.toLocaleString()}원<br>(${rate}%)
+                            ${profit > 0 ? '+' : ''}${profit.toLocaleString()}원<br>
+                            (${rate}%)
                         </span>
                     </div>
                 </div>
-                <button onclick="deleteStock(${s.id})" style="margin-top:15px; width:100%; padding:10px; background:#f8f9fa; border:1px solid #ddd; border-radius:8px; color:#999;">삭제</button>
+                <button onclick="deleteStock(${s.id})" style="margin-top:15px; width:100%; padding:12px; background:#f8f9fa; border:1px solid #ddd; border-radius:8px; color:#999; font-size:14px;">장부에서 삭제</button>
             </div>`;
         });
-        const tProfit = tEval - tBuy;
-        const tRate = tBuy === 0 ? 0 : ((tProfit / tBuy) * 100).toFixed(2);
-        document.getElementById('totalBuy').innerText = tBuy.toLocaleString() + '원';
-        document.getElementById('totalEval').innerText = tEval.toLocaleString() + '원';
-        const pEl = document.getElementById('totalProfit');
-        pEl.innerText = `${tProfit.toLocaleString()}원 (${tRate}%)`;
-        pEl.className = 'summary-value ' + (tProfit >= 0 ? 'red' : 'blue');
-    }
 
-    function deleteStock(id) {
-        if(confirm("정말 삭제할까요?")) {
-            stocks = stocks.filter(s => s.id !== id);
-            localStorage.setItem('myStocks', JSON.stringify(stocks));
-            render();
-        }
-    }
-    window.onload = render;
-</script>
-</body>
-</html>
+        const tProfit = tEval - tBuy;
+        const tRate = tBuy === 0 ? 0 :
