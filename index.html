@@ -1,11 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 주식 장부</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8f9fa; padding: 20px; color: #333; }
+        .container { max-width: 450px; margin: auto; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .header { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .header h2 { margin: 0; font-size: 1.3rem; }
+        .input-group { margin-bottom: 15px; }
+        input { width: 100%; padding: 15px; border: 1px solid #e9ecef; border-radius: 12px; font-size: 1rem; background-color: #f1f3f5; outline: none; transition: 0.3s; }
+        input:focus { border-color: #007bff; background-color: #fff; }
+        input[readonly] { background-color: #e9ecef; color: #495057; font-weight: bold; cursor: not-allowed; }
+        .btn-save { width: 100%; padding: 18px; background-color: #007bff; color: white; border: none; border-radius: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <span>📈</span>
+        <h2>종목 등록</h2>
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="stockName" placeholder="종목명 (예: 삼성전자)" onchange="autoFetchPrice()">
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="currentPrice" placeholder="현재시세 (자동)" readonly>
+    </div>
+
+    <div class="input-group">
+        <input type="number" id="buyPrice" placeholder="나의 매수 단가">
+    </div>
+
+    <div class="input-group">
+        <input type="number" id="stockCount" placeholder="보유 수량">
+    </div>
+
+    <button class="btn-save" onclick="saveData()">내 장부에 저장하기</button>
+</div>
+
+<script>
     async function autoFetchPrice() {
         const name = document.getElementById('stockName').value.trim();
         const priceInput = document.getElementById('currentPrice');
 
         if (!name) return;
-        priceInput.value = "조회 중...";
+        priceInput.value = "진짜 시세 조회 중...";
 
         try {
+            // 야후 파이낸스 실시간 데이터 통로
             const response = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(name)}&lang=ko-KR`);
             const data = await response.json();
             
@@ -13,16 +60,33 @@
                 const symbol = data.quotes[0].symbol;
                 const priceResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`);
                 const priceData = await priceResponse.json();
+                
+                // 여기서 진짜 숫자를 가져옵니다.
                 const nowPrice = priceData.chart.result[0].meta.regularMarketPrice;
 
-                // 이제 진짜 실시간 가격만 표시합니다!
+                // 가져온 숫자를 그대로 화면에 찍습니다. (20만원 넘어도 상관없음!)
                 priceInput.value = Math.floor(nowPrice).toLocaleString() + " 원";
             } else {
                 priceInput.value = "종목 확인 불가";
             }
         } catch (error) {
             console.error(error);
-            // 실패했을 때 엉뚱한 숫자가 나오지 않도록 "재시도"라고만 띄웁니다.
-            priceInput.value = "다시 입력해주세요";
+            // 사진(10231.jpg)에서 지적하신 "엉뚱한 숫자" 코드를 삭제하고 실패 메시지만 남겼습니다.
+            priceInput.value = "네트워크 실패 (재시도)";
         }
     }
+
+    function saveData() {
+        const name = document.getElementById('stockName').value;
+        const price = document.getElementById('currentPrice').value;
+        if(!name || price.includes("조회") || price === "") {
+            alert("정확한 종목 정보를 확인해주세요.");
+            return;
+        }
+        alert(name + " " + price + " 저장 완료!");
+    }
+</script>
+
+</body>
+</html>
+
