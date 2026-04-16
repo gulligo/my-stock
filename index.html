@@ -5,39 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나의 주식 관리 앱</title>
     <style>
-        /* 기본 스타일 */
         * { box-sizing: border-box; }
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; }
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; font-size: 18px; margin-top: 0; }
         
-        /* 요약 영역 */
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
         .summary-value { font-size: 16px; font-weight: bold; }
         
-        /* 입력 영역 */
         .input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
         input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%; }
         input#current { background-color: #fff9c4; font-weight: bold; color: #d32f2f; border: 2px solid #ffeb3b; }
         .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .date-label { font-size: 13px; color: #555; margin-bottom: 3px; font-weight: bold; }
-        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; }
+        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; cursor: pointer; }
 
-        /* 종목 리스트 (접이식) */
         .stock-item { background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
         .stock-summary { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; background: #fff; }
         .stock-details { padding: 0 15px 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
         .stock-details div { margin-top: 8px; }
         
-        /* 수익률 색상 */
         .red { color: #d9534f; }
         .blue { color: #0275d8; }
         .section-title { font-size: 14px; font-weight: bold; color: #888; margin: 15px 0 8px; }
         
-        /* 더보기 버튼 */
         .more-btn { width: 100%; padding: 12px; background: #e9ecef; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 10px; }
-        .delete-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; }
+        .delete-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        .edit-notice { font-size: 12px; color: #007bff; margin-bottom: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -47,12 +42,13 @@
     <div class="summary-grid">
         <div class="summary-item"><span>총 매수</span><div id="totalBuy" class="summary-value">0원</div></div>
         <div class="summary-item"><span>총 평가</span><div id="totalEval" class="summary-value">0원</div></div>
-        <div id="totalProfitBox" class="summary-item" style="grid-column: span 2;"><span>총 손익</span><div id="totalProfit" class="summary-value">0원 (0%)</div></div>
+        <div class="summary-item" style="grid-column: span 2;"><span>총 손익</span><div id="totalProfit" class="summary-value">0원 (0%)</div></div>
     </div>
 </div>
 
-<div class="card">
-    <h2>📈 종목 등록</h2>
+<div class="card" id="inputSection">
+    <h2>📈 종목 등록 / 수정</h2>
+    <div id="edit-mode-msg" class="edit-notice" style="display:none;">⚠️ 선택한 종목 정보가 입력되었습니다.</div>
     <div class="input-box">
         <input type="text" id="name" placeholder="종목명">
         <input type="number" id="code" placeholder="종목번호 6자리" oninput="handleInput(this)">
@@ -62,7 +58,7 @@
         <input type="number" id="current" placeholder="현재가 (시세 대기)">
         <div class="date-row">
             <div><div class="date-label">📅 매수일</div><input type="date" id="buyDate"></div>
-            <div><div class="date-label">📅 매도일 (선택)</div><input type="date" id="sellDate"></div>
+            <div><div class="date-label">📅 매도일 (매도 시 입력)</div><input type="date" id="sellDate"></div>
         </div>
     </div>
     <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
@@ -99,26 +95,40 @@
     }
 
     function saveStock() {
-        const stock = {
-            id: Date.now(),
-            name: document.getElementById('name').value,
-            code: document.getElementById('code').value,
+        const stockName = document.getElementById('name').value;
+        const stockCode = document.getElementById('code').value;
+
+        // 같은 종목이 이미 있다면 업데이트(매도 처리 등), 없다면 새로 추가
+        const existingIndex = stocks.findIndex(s => s.name === stockName && !s.sellDate);
+
+        const newStock = {
+            id: existingIndex >= 0 ? stocks[existingIndex].id : Date.now(),
+            name: stockName,
+            code: stockCode,
             price: Number(document.getElementById('price').value),
             qty: Number(document.getElementById('qty').value),
             current: Number(document.getElementById('current').value),
             buyDate: document.getElementById('buyDate').value,
             sellDate: document.getElementById('sellDate').value
         };
-        if (!stock.name || !stock.price) return alert("필수 정보를 입력해주세요.");
-        stocks.unshift(stock);
+
+        if (!newStock.name || !newStock.price) return alert("필수 정보를 입력해주세요.");
+
+        if (existingIndex >= 0) {
+            stocks[existingIndex] = newStock; // 정보 덮어쓰기
+        } else {
+            stocks.unshift(newStock); // 새로 추가
+        }
+
         localStorage.setItem('myStocks', JSON.stringify(stocks));
+        alert("저장되었습니다!");
         location.reload();
     }
 
     function render() {
         const activeList = document.getElementById('activeList');
         const soldList = document.getElementById('soldList');
-        activeList.innerHTML = '<div class="section-title">🟢 거래중 종목</div>';
+        activeList.innerHTML = '<div class="section-title">🟢 거래중 종목 (클릭 시 입력창에 채워짐)</div>';
         soldList.innerHTML = '';
 
         let tBuy = 0, tEval = 0;
@@ -129,7 +139,7 @@
             const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
             const html = `
                 <div class="stock-item">
-                    <div class="stock-summary" onclick="toggleDetail(${s.id})">
+                    <div class="stock-summary" onclick="fillAndToggle(${s.id})">
                         <span>${s.name}</span>
                         <span class="${profit >= 0 ? 'red' : 'blue'}">${rate}%</span>
                     </div>
@@ -140,7 +150,7 @@
                         <div><b>매수단가:</b> ${s.price.toLocaleString()}원</div>
                         <div><b>현재가:</b> ${s.current.toLocaleString()}원</div>
                         <div><b>평가손익:</b> <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원</span></div>
-                        <div style="font-size:12px; color:#888;">매수일: ${s.buyDate} ${s.sellDate ? '| 매도일: '+s.sellDate : ''}</div>
+                        <div style="font-size:12px; color:#888;">매수일: ${s.buyDate}</div>
                     </div>
                 </div>`;
 
@@ -164,9 +174,35 @@
         document.getElementById('totalProfit').className = 'summary-value ' + (tProfit >= 0 ? 'red' : 'blue');
     }
 
-    function toggleDetail(id) {
-        const el = document.getElementById('detail-' + id);
-        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    // 목록 클릭 시 상세 정보를 보여주고 입력창에 값을 채우는 함수
+    function fillAndToggle(id) {
+        const s = stocks.find(stock => stock.id === id);
+        if (!s) return;
+
+        // 상세페이지 토글
+        const detailEl = document.getElementById('detail-' + id);
+        const isOpening = detailEl.style.display !== 'block';
+        
+        // 모든 상세창 닫기
+        document.querySelectorAll('.stock-details').forEach(el => el.style.display = 'none');
+        
+        if (isOpening) {
+            detailEl.style.display = 'block';
+            
+            // 입력창에 정보 채우기
+            document.getElementById('name').value = s.name;
+            document.getElementById('code').value = s.code;
+            document.getElementById('price').value = s.price;
+            document.getElementById('qty').value = s.qty;
+            document.getElementById('current').value = s.current;
+            document.getElementById('buyDate').value = s.buyDate;
+            
+            // 알림 표시 및 화면 상단으로 이동
+            document.getElementById('edit-mode-msg').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            document.getElementById('edit-mode-msg').style.display = 'none';
+        }
     }
 
     function toggleSold() {
