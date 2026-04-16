@@ -14,25 +14,34 @@
         .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
         .summary-value { font-size: 16px; font-weight: bold; }
         
-        .input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%; }
+        .input-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        input { padding: 15px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; width: 100%; -webkit-appearance: none; }
         input#current { background-color: #fff9c4; font-weight: bold; color: #d32f2f; border: 2px solid #ffeb3b; }
-        .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .date-label { font-size: 13px; color: #555; margin-bottom: 3px; font-weight: bold; }
-        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; width: 100%; cursor: pointer; }
+        
+        .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px; }
+        .date-label { font-size: 14px; color: #007bff; margin-bottom: 5px; font-weight: bold; }
+        input[type="date"] { background: #fff; cursor: pointer; min-height: 50px; }
+
+        button.save-btn { padding: 18px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; width: 100%; cursor: pointer; }
 
         .stock-item { background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; }
         .stock-summary { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; background: #fff; }
-        .stock-details { padding: 0 15px 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
+        .stock-details { padding: 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
         .stock-details div { margin-top: 8px; }
         
         .red { color: #d9534f; }
         .blue { color: #0275d8; }
         .section-title { font-size: 14px; font-weight: bold; color: #888; margin: 15px 0 8px; }
         
-        .more-btn { width: 100%; padding: 12px; background: #e9ecef; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; cursor: pointer; margin-top: 10px; }
-        .delete-btn { position: absolute; top: 10px; right: 10px; background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
-        .edit-notice { font-size: 12px; color: #007bff; margin-bottom: 5px; font-weight: bold; }
+        .more-btn { width: 100%; padding: 15px; background: #e9ecef; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        
+        /* 버튼 스타일 수정 */
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; }
+        .action-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .edit-btn { background: #28a745; color: white; }
+        .del-btn { background: #ff4d4d; color: white; }
+        
+        .edit-notice { background: #e7f3ff; padding: 10px; border-radius: 8px; font-size: 13px; color: #007bff; margin-bottom: 10px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
@@ -47,18 +56,25 @@
 </div>
 
 <div class="card" id="inputSection">
-    <h2>📈 종목 등록 / 수정</h2>
-    <div id="edit-mode-msg" class="edit-notice" style="display:none;">⚠️ 선택한 종목 정보가 입력되었습니다.</div>
+    <h2>📈 종목 등록 / 매도 처리</h2>
+    <div id="edit-mode-msg" class="edit-notice" style="display:none;">편집 모드: 내용을 수정 후 저장하세요.</div>
     <div class="input-box">
         <input type="text" id="name" placeholder="종목명">
         <input type="number" id="code" placeholder="종목번호 6자리" oninput="handleInput(this)">
-        <div id="status-msg" style="font-size:12px; font-weight:bold;"></div>
+        <div id="status-msg" style="font-size:12px; font-weight:bold; color: #28a745;"></div>
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="qty" placeholder="수량">
-        <input type="number" id="current" placeholder="현재가 (시세 대기)">
+        <input type="number" id="current" placeholder="현재가 (시세 자동대기)">
+        
         <div class="date-row">
-            <div><div class="date-label">📅 매수일</div><input type="date" id="buyDate"></div>
-            <div><div class="date-label">📅 매도일 (매도 시 입력)</div><input type="date" id="sellDate"></div>
+            <div>
+                <div class="date-label">📅 매수일자</div>
+                <input type="date" id="buyDate">
+            </div>
+            <div>
+                <div class="date-label">📅 매도일자 (매도 시만)</div>
+                <input type="date" id="sellDate">
+            </div>
         </div>
     </div>
     <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
@@ -72,6 +88,7 @@
 
 <script>
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
+    let editingId = null;
 
     window.onload = function() {
         document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
@@ -90,21 +107,18 @@
             const data = await res.json();
             const price = JSON.parse(data.contents).chart.result[0].meta.regularMarketPrice;
             document.getElementById('current').value = price;
-            msg.innerText = "✅ 조회 완료";
+            msg.innerText = "✅ 시세 확인 완료";
         } catch { msg.innerText = "❌ 직접 입력 필요"; }
     }
 
     function saveStock() {
-        const stockName = document.getElementById('name').value;
-        const stockCode = document.getElementById('code').value;
+        const name = document.getElementById('name').value;
+        if (!name || !document.getElementById('price').value) return alert("종목명과 단가는 필수입니다.");
 
-        // 같은 종목이 이미 있다면 업데이트(매도 처리 등), 없다면 새로 추가
-        const existingIndex = stocks.findIndex(s => s.name === stockName && !s.sellDate);
-
-        const newStock = {
-            id: existingIndex >= 0 ? stocks[existingIndex].id : Date.now(),
-            name: stockName,
-            code: stockCode,
+        const stockData = {
+            id: editingId || Date.now(),
+            name: name,
+            code: document.getElementById('code').value,
             price: Number(document.getElementById('price').value),
             qty: Number(document.getElementById('qty').value),
             current: Number(document.getElementById('current').value),
@@ -112,23 +126,24 @@
             sellDate: document.getElementById('sellDate').value
         };
 
-        if (!newStock.name || !newStock.price) return alert("필수 정보를 입력해주세요.");
-
-        if (existingIndex >= 0) {
-            stocks[existingIndex] = newStock; // 정보 덮어쓰기
+        if (editingId) {
+            const index = stocks.findIndex(s => s.id === editingId);
+            if (index !== -1) stocks[index] = stockData;
         } else {
-            stocks.unshift(newStock); // 새로 추가
+            stocks.unshift(stockData);
         }
 
         localStorage.setItem('myStocks', JSON.stringify(stocks));
         alert("저장되었습니다!");
+        
+        editingId = null;
         location.reload();
     }
 
     function render() {
         const activeList = document.getElementById('activeList');
         const soldList = document.getElementById('soldList');
-        activeList.innerHTML = '<div class="section-title">🟢 거래중 종목 (클릭 시 입력창에 채워짐)</div>';
+        activeList.innerHTML = '<div class="section-title">🟢 거래 중인 종목</div>';
         soldList.innerHTML = '';
 
         let tBuy = 0, tEval = 0;
@@ -136,21 +151,29 @@
 
         stocks.forEach(s => {
             const profit = (s.current - s.price) * s.qty;
-            const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
+            const rate = s.price ? ((s.current - s.price) / s.price * 100).toFixed(2) : 0;
+            
+            const dateInfo = s.sellDate 
+                ? `<div>📅 매수일: ${s.buyDate}</div><div class="red">🏁 매도일: ${s.sellDate}</div>`
+                : `<div>📅 매수일: ${s.buyDate}</div>`;
+
             const html = `
                 <div class="stock-item">
-                    <div class="stock-summary" onclick="fillAndToggle(${s.id})">
+                    <div class="stock-summary" onclick="toggleDetailOnly(${s.id})">
                         <span>${s.name}</span>
                         <span class="${profit >= 0 ? 'red' : 'blue'}">${rate}%</span>
                     </div>
                     <div id="detail-${s.id}" class="stock-details">
-                        <button class="delete-btn" onclick="deleteStock(${s.id})">삭제</button>
-                        <div><b>종목코드:</b> ${s.code}</div>
-                        <div><b>수량:</b> ${s.qty}주</div>
-                        <div><b>매수단가:</b> ${s.price.toLocaleString()}원</div>
-                        <div><b>현재가:</b> ${s.current.toLocaleString()}원</div>
-                        <div><b>평가손익:</b> <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원</span></div>
-                        <div style="font-size:12px; color:#888;">매수일: ${s.buyDate}</div>
+                        <div><b>코드:</b> ${s.code} | <b>수량:</b> ${s.qty}주</div>
+                        <div><b>매수:</b> ${s.price.toLocaleString()}원 | <b>현재:</b> ${s.current.toLocaleString()}원</div>
+                        <div><b>손익:</b> <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원</span></div>
+                        <div style="font-size:12px; color:#888; border-top:1px dashed #ddd; margin-top:10px; padding-top:5px;">
+                            ${dateInfo}
+                        </div>
+                        <div class="btn-group">
+                            <button class="action-btn edit-btn" onclick="goToEdit(${s.id})">수정 / 매도하기</button>
+                            <button class="action-btn del-btn" onclick="deleteStock(${s.id})">삭제</button>
+                        </div>
                     </div>
                 </div>`;
 
@@ -174,35 +197,38 @@
         document.getElementById('totalProfit').className = 'summary-value ' + (tProfit >= 0 ? 'red' : 'blue');
     }
 
-    // 목록 클릭 시 상세 정보를 보여주고 입력창에 값을 채우는 함수
-    function fillAndToggle(id) {
-        const s = stocks.find(stock => stock.id === id);
-        if (!s) return;
-
-        // 상세페이지 토글
+    // [중요] 화면 이동 없이 상세 정보만 열고 닫는 함수
+    function toggleDetailOnly(id) {
         const detailEl = document.getElementById('detail-' + id);
         const isOpening = detailEl.style.display !== 'block';
         
-        // 모든 상세창 닫기
+        // 다른 상세창은 다 닫기
         document.querySelectorAll('.stock-details').forEach(el => el.style.display = 'none');
         
+        // 클릭한 것만 토글
         if (isOpening) {
             detailEl.style.display = 'block';
-            
-            // 입력창에 정보 채우기
-            document.getElementById('name').value = s.name;
-            document.getElementById('code').value = s.code;
-            document.getElementById('price').value = s.price;
-            document.getElementById('qty').value = s.qty;
-            document.getElementById('current').value = s.current;
-            document.getElementById('buyDate').value = s.buyDate;
-            
-            // 알림 표시 및 화면 상단으로 이동
-            document.getElementById('edit-mode-msg').style.display = 'block';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } else {
-            document.getElementById('edit-mode-msg').style.display = 'none';
         }
+    }
+
+    // 상세창 안에서 [수정/매도하기] 버튼을 눌렀을 때만 위로 이동
+    function goToEdit(id) {
+        const s = stocks.find(stock => stock.id === id);
+        if (!s) return;
+
+        editingId = s.id;
+        document.getElementById('name').value = s.name;
+        document.getElementById('code').value = s.code;
+        document.getElementById('price').value = s.price;
+        document.getElementById('qty').value = s.qty;
+        document.getElementById('current').value = s.current;
+        document.getElementById('buyDate').value = s.buyDate;
+        document.getElementById('sellDate').value = s.sellDate || "";
+
+        document.getElementById('edit-mode-msg').style.display = 'block';
+        
+        // 화면 맨 위 입력칸으로 이동
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function toggleSold() {
@@ -211,7 +237,7 @@
     }
 
     function deleteStock(id) {
-        if (confirm("삭제하시겠습니까?")) {
+        if (confirm("이 기록을 삭제할까요?")) {
             stocks = stocks.filter(s => s.id !== id);
             localStorage.setItem('myStocks', JSON.stringify(stocks));
             render();
