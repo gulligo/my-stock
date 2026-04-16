@@ -34,7 +34,7 @@
 <div class="card">
     <h2>📈 종목 등록</h2>
     <div class="input-box">
-        <input type="text" id="name" placeholder="종목명 입력 (예: 삼성전자)" onblur="autoSearch()" onkeypress="if(event.keyCode==13) autoSearch()">
+        <input type="text" id="name" placeholder="종목명 입력 (예: 삼성전자)" onchange="autoSearch()">
         <div id="status-msg"></div>
         <input type="text" id="code" placeholder="종목번호 (자동)" readonly>
         <input type="number" id="current" placeholder="현재시세 (자동)" readonly>
@@ -50,41 +50,27 @@
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
 
     async function autoSearch() {
-        const nameInput = document.getElementById('name');
-        const name = nameInput.value.trim();
+        const name = document.getElementById('name').value.trim();
         const codeInput = document.getElementById('code');
         const currentInput = document.getElementById('current');
         const statusMsg = document.getElementById('status-msg');
 
         if (!name) return;
-
         statusMsg.style.color = "#007bff";
-        statusMsg.innerText = "🔍 정보를 찾는 중...";
+        statusMsg.innerText = "🚀 즉시 연결 중...";
 
         try {
-            // 경로 1: 기본 검색
-            const searchUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(name)}&quotesCount=3`;
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
-            
-            const res = await fetch(proxyUrl);
+            // 더 빠르고 안정적인 우회 경로 사용
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=' + name)}`);
             const data = await res.json();
             const result = JSON.parse(data.contents);
             
-            let targetQuote = null;
             if (result.quotes && result.quotes.length > 0) {
-                // 한국 시장 종목(.KS, .KQ) 위주로 우선 탐색
-                targetQuote = result.quotes.find(q => q.symbol.includes('.KS') || q.symbol.includes('.KQ')) || result.quotes[0];
-            }
-
-            if (targetQuote) {
-                const symbol = targetQuote.symbol;
+                const stock = result.quotes.find(q => q.symbol.includes('.KS') || q.symbol.includes('.KQ')) || result.quotes[0];
+                const symbol = stock.symbol;
                 codeInput.value = symbol.split('.')[0];
                 
-                // 시세 정보 가져오기
-                const priceUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}`;
-                const proxyPriceUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(priceUrl)}`;
-                
-                const pRes = await fetch(proxyPriceUrl);
+                const pRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`);
                 const pData = await pRes.json();
                 const pResult = JSON.parse(pData.contents);
                 const price = pResult.chart.result[0].meta.regularMarketPrice;
@@ -92,16 +78,16 @@
                 if (price) {
                     currentInput.value = price;
                     statusMsg.style.color = "#28a745";
-                    statusMsg.innerText = "✅ 정보를 성공적으로 가져왔습니다!";
+                    statusMsg.innerText = "✅ 자동 입력 성공!";
                 }
             } else {
-                throw new Error("No quotes");
+                statusMsg.style.color = "#d9534f";
+                statusMsg.innerText = "❌ 종목명을 찾을 수 없습니다.";
             }
         } catch (e) {
             statusMsg.style.color = "#f0ad4e";
-            statusMsg.innerText = "⚠️ 다시 시도 중입니다...";
-            // 실패 시 1초 후 재시도
-            setTimeout(autoSearch, 1000);
+            statusMsg.innerText = "⚠️ 다시 연결을 시도합니다...";
+            setTimeout(autoSearch, 2000); 
         }
     }
 
@@ -118,23 +104,20 @@
         stocks.push(s);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
         render();
-        
         ['name','code','price','qty','current'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('status-msg').innerText = '';
-        alert("저장되었습니다!");
+        alert("장부에 저장되었습니다!");
     }
 
     function render() {
         let tBuy = 0, tEval = 0;
         const listDiv = document.getElementById('stockList');
         listDiv.innerHTML = '';
-
         stocks.forEach(s => {
             tBuy += (s.price * s.qty);
             tEval += (s.current * s.qty);
             const profit = (s.current - s.price) * s.qty;
             const rate = s.price === 0 ? 0 : ((s.current - s.price) / s.price * 100).toFixed(2);
-            
             listDiv.innerHTML += `<div class="stock-item">
                 <div style="display:flex; justify-content:space-between;">
                     <div><b style="font-size:20px;">${s.name}</b> <small>(${s.code})</small><br>${s.qty}주 보유</div>
@@ -147,7 +130,6 @@
                 <button onclick="deleteStock(${s.id})" style="margin-top:15px; width:100%; padding:10px; background:#f8f9fa; border:1px solid #ddd; border-radius:8px; color:#999;">삭제</button>
             </div>`;
         });
-
         const tProfit = tEval - tBuy;
         const tRate = tBuy === 0 ? 0 : ((tProfit / tBuy) * 100).toFixed(2);
         document.getElementById('totalBuy').innerText = tBuy.toLocaleString() + '원';
