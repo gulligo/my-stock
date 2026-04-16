@@ -9,7 +9,6 @@
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #333; margin-top: 0; font-size: 20px; }
         
-        /* 자산 요약 스타일 */
         .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .summary-item { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
         .summary-label { font-size: 12px; color: #666; display: block; margin-bottom: 5px; }
@@ -17,8 +16,13 @@
 
         .input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        
+        /* 시세 확인용 버튼 스타일 */
+        .check-price-btn { padding: 10px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-bottom: 5px; }
         button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; }
         
+        #priceViewer { width: 100%; height: 150px; border: 1px solid #ddd; border-radius: 8px; display: none; margin-bottom: 10px; }
+
         .tab-menu { display: flex; gap: 10px; margin-bottom: 15px; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: #ddd; border-radius: 8px; font-weight: bold; }
         .tab-btn.active { background: #007bff; color: white; }
@@ -61,18 +65,19 @@
     <h2>📈 종목 등록</h2>
     <div class="input-box">
         <input type="text" id="name" placeholder="종목명">
-        <input type="text" id="code" placeholder="종목코드 (필요시)">
+        <input type="text" id="code" placeholder="종목코드 (예: 005930)">
+        
+        <button class="check-price-btn" onclick="openPrice()">현시점 지연 시세 확인하기</button>
+        <iframe id="priceViewer"></iframe>
+        
         <select id="status">
             <option value="hold">보유 중</option>
             <option value="done">매매 완료</option>
         </select>
-        <div class="input-box">
-            <input type="date" id="buyDate">
-            <input type="date" id="sellDate" style="display:none;">
-        </div>
+        <input type="date" id="buyDate">
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="qty" placeholder="수량">
-        <input type="number" id="current" placeholder="현재가 (또는 매도가)">
+        <input type="number" id="current" placeholder="현재가 (위에서 확인 후 입력)">
     </div>
     <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
 </div>
@@ -85,11 +90,18 @@
 <div id="stockList"></div>
 
 <script>
-    document.getElementById('status').addEventListener('change', function() {
-        document.getElementById('sellDate').style.display = this.value === 'done' ? 'block' : 'none';
-    });
-
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
+
+    // 구글 파이낸스를 이용해 시세를 보여주는 함수
+    function openPrice() {
+        const code = document.getElementById('code').value;
+        const viewer = document.getElementById('priceViewer');
+        if(!code) return alert("종목코드를 먼저 입력해주세요 (예: 005930)");
+        
+        // 구글 파이낸스 모바일 페이지 활용
+        viewer.src = `https://www.google.com/search?q=KRX:${code}&tbm=fin`;
+        viewer.style.display = 'block';
+    }
 
     function saveStock() {
         const stock = {
@@ -98,43 +110,29 @@
             code: document.getElementById('code').value,
             status: document.getElementById('status').value,
             buyDate: document.getElementById('buyDate').value,
-            sellDate: document.getElementById('sellDate').value,
             price: Number(document.getElementById('price').value),
             current: Number(document.getElementById('current').value),
             qty: Number(document.getElementById('qty').value)
         };
 
-        if(!stock.name || !stock.price) return alert("종목명과 매수가를 입력하세요.");
+        if(!stock.name || !stock.price) return alert("필수 정보를 입력하세요.");
         stocks.push(stock);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
-        
-        // 입력창 초기화
-        document.getElementById('name').value = '';
-        document.getElementById('code').value = '';
-        document.getElementById('price').value = '';
-        document.getElementById('qty').value = '';
-        document.getElementById('current').value = '';
-        
         render(stock.status);
         alert("저장되었습니다!");
     }
 
     function calculateSummary() {
         const holdStocks = stocks.filter(s => s.status === 'hold');
-        let totalBuy = 0;
-        let totalEval = 0;
-
+        let totalBuy = 0; let totalEval = 0;
         holdStocks.forEach(s => {
             totalBuy += (s.price * s.qty);
             totalEval += (s.current * s.qty);
         });
-
         const totalProfit = totalEval - totalBuy;
         const totalRate = totalBuy === 0 ? 0 : ((totalProfit / totalBuy) * 100).toFixed(2);
-
         document.getElementById('totalBuy').innerText = totalBuy.toLocaleString() + '원';
         document.getElementById('totalEval').innerText = totalEval.toLocaleString() + '원';
-        
         const profitEl = document.getElementById('totalProfit');
         profitEl.innerText = `${totalProfit.toLocaleString()}원 (${totalRate}%)`;
         profitEl.className = 'summary-value ' + (totalProfit >= 0 ? 'red' : 'blue');
@@ -145,17 +143,10 @@
         const listDiv = document.getElementById('stockList');
         listDiv.innerHTML = '';
         const filtered = stocks.filter(s => s.status === filter);
-
-        if(filtered.length === 0) {
-            listDiv.innerHTML = '<p style="text-align:center; color:#888; padding:20px;">데이터가 없습니다.</p>';
-            return;
-        }
-
         filtered.forEach(s => {
             const profit = (s.current - s.price) * s.qty;
             const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
             const colorClass = profit >= 0 ? 'red' : 'blue';
-            
             const item = document.createElement('div');
             item.className = `stock-item status-${s.status}`;
             item.innerHTML = `
@@ -165,32 +156,25 @@
                 </div>
                 <div class="item-detail">
                     <div class="info-grid">
-                        <div><span class="label">매수일</span><br>${s.buyDate || '-'}</div>
-                        <div><span class="label">${s.status === 'done' ? '매도일' : '수량'}</span><br>${s.status === 'done' ? (s.sellDate || '-') : s.qty + '주'}</div>
+                        <div><span class="label">수량</span><br>${s.qty}주</div>
                         <div><span class="label">매수가</span><br>${s.price.toLocaleString()}원</div>
-                        <div><span class="label">${s.status === 'done' ? '매도가' : '현재가'}</span><br>${s.current.toLocaleString()}원</div>
+                        <div><span class="label">현재가</span><br>${s.current.toLocaleString()}원</div>
                     </div>
-                    <button style="margin-top:10px; padding:10px; background:#ff4d4d; color:white; border:none; border-radius:8px; width:100%; font-weight:bold;" onclick="deleteStock(${s.id})">기록 삭제</button>
+                    <button style="margin-top:10px; padding:10px; background:#ff4d4d; color:white; border:none; border-radius:8px; width:100%;" onclick="deleteStock(${s.id})">삭제</button>
                 </div>
             `;
             listDiv.appendChild(item);
         });
     }
 
-    function toggleDetail(el) {
-        const detail = el.nextElementSibling;
-        detail.classList.toggle('show');
-    }
-
+    function toggleDetail(el) { el.nextElementSibling.classList.toggle('show'); }
     function deleteStock(id) {
-        if(confirm("정말 삭제하시겠습니까?")) {
+        if(confirm("삭제하시겠습니까?")) {
             stocks = stocks.filter(s => s.id !== id);
             localStorage.setItem('myStocks', JSON.stringify(stocks));
-            const currentTab = document.getElementById('btn-hold').classList.contains('active') ? 'hold' : 'done';
-            render(currentTab);
+            render(document.getElementById('btn-hold').classList.contains('active') ? 'hold' : 'done');
         }
     }
-
     function showTab(type) {
         document.getElementById('btn-hold').classList.remove('active');
         document.getElementById('btn-done').classList.remove('active');
@@ -198,7 +182,6 @@
         else document.getElementById('btn-done').classList.add('active');
         render(type);
     }
-
     window.onload = () => render('hold');
 </script>
 </body>
