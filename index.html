@@ -51,34 +51,38 @@
 
         if (!name) return;
 
-        priceInput.value = "조회 중...";
+        priceInput.value = "데이터 찾는 중...";
 
         try {
-            // 1. 종목 코드를 먼저 몰래 가져오기 (대리 서버 이용)
-            const searchUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://ac.finance.naver.com/ac?q=' + name + '&st=1&r_format=json')}`;
-            const searchResponse = await fetch(searchUrl);
-            const searchData = await searchResponse.json();
-            const searchContents = JSON.parse(searchData.contents);
+            // 1. 종목 코드를 찾는 더 안정적인 주소
+            const searchUrl = `https://ac.finance.naver.com/ac?q=${encodeURIComponent(name)}&st=1&r_format=json&r_enc=utf-8`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`;
             
-            const stockCode = searchContents.items[0][0][0];
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            const json = JSON.parse(data.contents);
+            
+            if (json.items && json.items[0] && json.items[0][0]) {
+                const stockCode = json.items[0][0][0];
 
-            if (stockCode) {
-                // 2. 알아낸 코드로 현재가 가져오기 (대리 서버 이용)
-                const priceUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:' + stockCode)}`;
-                const priceResponse = await fetch(priceUrl);
-                const priceData = await priceResponse.json();
-                const priceContents = JSON.parse(priceData.contents);
+                // 2. 현재가를 가져오는 주소 (실시간 데이터 서버 직접 연결 시도)
+                const priceUrl = `https://polling.finance.naver.com/api/realtime?query=SERVICE_ITEM:${stockCode}`;
+                const priceProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(priceUrl)}`;
                 
-                const nowPrice = priceContents.result.areas[0].datas[0].nv;
+                const pResponse = await fetch(priceProxyUrl);
+                const pData = await pResponse.json();
+                const pJson = JSON.parse(pData.contents);
                 
-                // 3. 결과 표시
+                const nowPrice = pJson.result.areas[0].datas[0].nv;
+                
+                // 3. 콤마 넣어서 가격 표시
                 priceInput.value = nowPrice.toLocaleString() + " 원";
             } else {
-                priceInput.value = "종목명 확인 필요";
+                priceInput.value = "종목을 못 찾았습니다";
             }
         } catch (error) {
-            console.error(error);
-            priceInput.value = "조회 실패 (재시도)";
+            console.error("오류:", error);
+            priceInput.value = "재시도 해주세요";
         }
     }
 
@@ -86,12 +90,12 @@
         const name = document.getElementById('stockName').value;
         const price = document.getElementById('currentPrice').value;
         
-        if(!name || price.includes("조회") || price === "") {
+        if(!name || price.includes("중") || price === "") {
             alert("가격을 먼저 확인해주세요.");
             return;
         }
 
-        alert(name + " 종목을 장부에 저장했습니다!");
+        alert(name + " " + price + " 저장 완료!");
     }
 </script>
 
