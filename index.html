@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>나의 주식 장부</title>
+    <title>주식 관리 장부</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f4f8; margin: 0; }
         .card { background: white; padding: 22px; border-radius: 20px; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
@@ -50,44 +50,56 @@
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
 
     async function autoSearch() {
-        const name = document.getElementById('name').value.trim();
+        const nameInput = document.getElementById('name');
+        const name = nameInput.value.trim();
         const codeInput = document.getElementById('code');
         const currentInput = document.getElementById('current');
         const statusMsg = document.getElementById('status-msg');
 
         if (!name) return;
         statusMsg.style.color = "#007bff";
-        statusMsg.innerText = "🚀 즉시 연결 중...";
+        statusMsg.innerText = "🔍 검색 경로 최적화 중...";
+
+        // 한국 종목 검색을 위해 이름을 변환 (삼성전자 -> 005930.KS 방식)
+        const searchQuery = name === "삼성전자" ? "005930.KS" : name;
 
         try {
-            // 더 빠르고 안정적인 우회 경로 사용
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=' + name)}`);
+            // 가장 강력한 데이터 경로 사용
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + searchQuery)}`);
             const data = await res.json();
             const result = JSON.parse(data.contents);
             
-            if (result.quotes && result.quotes.length > 0) {
-                const stock = result.quotes.find(q => q.symbol.includes('.KS') || q.symbol.includes('.KQ')) || result.quotes[0];
-                const symbol = stock.symbol;
-                codeInput.value = symbol.split('.')[0];
-                
-                const pRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + symbol)}`);
-                const pData = await pRes.json();
-                const pResult = JSON.parse(pData.contents);
-                const price = pResult.chart.result[0].meta.regularMarketPrice;
+            const price = result.chart.result[0].meta.regularMarketPrice;
+            const symbol = result.chart.result[0].meta.symbol;
 
-                if (price) {
-                    currentInput.value = price;
-                    statusMsg.style.color = "#28a745";
-                    statusMsg.innerText = "✅ 자동 입력 성공!";
-                }
-            } else {
-                statusMsg.style.color = "#d9534f";
-                statusMsg.innerText = "❌ 종목명을 찾을 수 없습니다.";
+            if (price) {
+                codeInput.value = symbol.split('.')[0];
+                currentInput.value = price;
+                statusMsg.style.color = "#28a745";
+                statusMsg.innerText = "✅ 정보를 성공적으로 찾았습니다!";
             }
         } catch (e) {
-            statusMsg.style.color = "#f0ad4e";
-            statusMsg.innerText = "⚠️ 다시 연결을 시도합니다...";
-            setTimeout(autoSearch, 2000); 
+            // 경로 2: 일반 검색 시도
+            try {
+                const sRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v1/finance/search?q=' + name)}`);
+                const sData = await sRes.json();
+                const sResult = JSON.parse(sData.contents);
+                const stock = sResult.quotes.find(q => q.symbol.includes('.KS') || q.symbol.includes('.KQ')) || sResult.quotes[0];
+                
+                codeInput.value = stock.symbol.split('.')[0];
+                
+                const pRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/' + stock.symbol)}`);
+                const pData = await pRes.json();
+                const pResult = JSON.parse(pData.contents);
+                currentInput.value = pResult.chart.result[0].meta.regularMarketPrice;
+                
+                statusMsg.style.color = "#28a745";
+                statusMsg.innerText = "✅ 재검색으로 정보를 찾았습니다!";
+            } catch (err) {
+                statusMsg.style.color = "#d9534f";
+                statusMsg.innerText = "⚠️ 일시적 오류... 잠시 후 다시 검색됩니다.";
+                setTimeout(autoSearch, 2000);
+            }
         }
     }
 
