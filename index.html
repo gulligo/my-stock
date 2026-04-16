@@ -1,5 +1,4 @@
- 
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -33,14 +32,14 @@
 </div>
 
 <div class="card">
-    <h2>📈 종목 등록 (번호 6자리 입력)</h2>
+    <h2>📈 종목 등록</h2>
     <div class="input-box">
         <input type="text" id="name" placeholder="종목명 (예: 삼성전자)">
-        <input type="number" id="code" placeholder="종목번호 6자리 (예: 005930)" oninput="handleInput(this)">
+        <input type="hidden" id="code">
         <div id="status-msg"></div>
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="qty" placeholder="수량">
-        <input type="number" id="current" placeholder="현재가 (자동 입력 대기중)">
+        <input type="number" id="current" placeholder="현재가 (자동 입력)">
     </div>
     <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
 </div>
@@ -48,26 +47,46 @@
 <div id="stockList"></div>
 
 <script>
-    let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
+let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
 
-    function handleInput(el) {
-        if (el.value.length === 6) {
-            fetchPrice(el.value);
+function autoSetCode(name){
+    const map = {
+        "삼성전자": "005930",
+        "SK하이닉스": "000660",
+        "카카오": "035720",
+        "네이버": "035420",
+        "한화오션": "042660"
+    };
+    return map[name] || "";
+}
+
+async function fetchPrice(code) {
+    const currentInput = document.getElementById('current');
+    const statusMsg = document.getElementById('status-msg');
+    statusMsg.style.color = "#007bff";
+    statusMsg.innerText = "⌛ 시세 정보를 가져오는 중입니다...";
+
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KS`;
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+
+    try {
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        const result = JSON.parse(data.contents);
+        const price = result.chart.result[0].meta.regularMarketPrice;
+
+        if (price) {
+            currentInput.value = price;
+            statusMsg.style.color = "#28a745";
+            statusMsg.innerText = "✅ 시세 자동 입력 완료";
+        } else {
+            throw new Error();
         }
-    }
-
-    async function fetchPrice(code) {
-        const currentInput = document.getElementById('current');
-        const statusMsg = document.getElementById('status-msg');
-        statusMsg.style.color = "#007bff";
-        statusMsg.innerText = "⌛ 시세 정보를 가져오는 중입니다...";
-
-        // 방법 1: 가장 빠른 공개 프록시 사용
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KS`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-
+    } catch (e) {
         try {
-            const response = await fetch(proxyUrl);
+            const urlKQ = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KQ`;
+            const proxyUrlKQ = `https://api.allorigins.win/get?url=${encodeURIComponent(urlKQ)}`;
+            const response = await fetch(proxyUrlKQ);
             const data = await response.json();
             const result = JSON.parse(data.contents);
             const price = result.chart.result[0].meta.regularMarketPrice;
@@ -75,84 +94,83 @@
             if (price) {
                 currentInput.value = price;
                 statusMsg.style.color = "#28a745";
-                statusMsg.innerText = "✅ 시세를 성공적으로 가져왔습니다!";
+                statusMsg.innerText = "✅ 시세 자동 입력 완료";
             } else {
                 throw new Error();
             }
-        } catch (e) {
-            // 방법 2: 코스닥 종목으로 재시도 (.KQ)
-            try {
-                const urlKQ = `https://query1.finance.yahoo.com/v8/finance/chart/${code}.KQ`;
-                const proxyUrlKQ = `https://api.allorigins.win/get?url=${encodeURIComponent(urlKQ)}`;
-                const response = await fetch(proxyUrlKQ);
-                const data = await response.json();
-                const result = JSON.parse(data.contents);
-                const price = result.chart.result[0].meta.regularMarketPrice;
-
-                if (price) {
-                    currentInput.value = price;
-                    statusMsg.style.color = "#28a745";
-                    statusMsg.innerText = "✅ 시세를 성공적으로 가져왔습니다!";
-                } else {
-                    throw new Error();
-                }
-            } catch (e2) {
-                statusMsg.style.color = "#d9534f";
-                statusMsg.innerText = "❌ 자동 입력 실패. 직접 입력해 주세요.";
-            }
+        } catch {
+            statusMsg.style.color = "#d9534f";
+            statusMsg.innerText = "❌ 자동 입력 실패 (직접 입력)";
         }
     }
+}
 
-    function saveStock() {
-        const stock = {
-            id: Date.now(),
-            name: document.getElementById('name').value,
-            code: document.getElementById('code').value,
-            price: Number(document.getElementById('price').value),
-            qty: Number(document.getElementById('qty').value),
-            current: Number(document.getElementById('current').value)
-        };
-        if(!stock.name || !stock.price || !stock.current) return alert("빈칸을 모두 채워주세요!");
-        stocks.push(stock);
+function saveStock() {
+    const name = document.getElementById('name').value;
+    const code = autoSetCode(name);
+
+    if(code){
+        fetchPrice(code);
+    }
+
+    const stock = {
+        id: Date.now(),
+        name: name,
+        code: code,
+        price: Number(document.getElementById('price').value),
+        qty: Number(document.getElementById('qty').value),
+        current: Number(document.getElementById('current').value)
+    };
+
+    if(!stock.name || !stock.price || !stock.current) return alert("빈칸을 모두 채워주세요!");
+
+    stocks.push(stock);
+    localStorage.setItem('myStocks', JSON.stringify(stocks));
+    render();
+    alert("저장되었습니다!");
+}
+
+function render() {
+    let totalBuy = 0;
+    let totalEval = 0;
+    const listDiv = document.getElementById('stockList');
+    listDiv.innerHTML = '';
+
+    stocks.forEach(s => {
+        totalBuy += (s.price * s.qty);
+        totalEval += (s.current * s.qty);
+
+        const profit = (s.current - s.price) * s.qty;
+        const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
+
+        listDiv.innerHTML += `<div class="stock-item">
+            <strong>${s.name}</strong> (${s.qty}주)<br>
+            수익: <span class="${profit >= 0 ? 'red' : 'blue'}">
+            ${profit.toLocaleString()}원 (${rate}%)
+            </span>
+            <button onclick="deleteStock(${s.id})" style="float:right; border:none; background:none; color:red;">삭제</button>
+        </div>`;
+    });
+
+    const totalProfit = totalEval - totalBuy;
+    const totalRate = totalBuy === 0 ? 0 : ((totalProfit / totalBuy) * 100).toFixed(2);
+
+    document.getElementById('totalBuy').innerText = totalBuy.toLocaleString() + '원';
+    document.getElementById('totalEval').innerText = totalEval.toLocaleString() + '원';
+    document.getElementById('totalProfit').innerText = `${totalProfit.toLocaleString()}원 (${totalRate}%)`;
+    document.getElementById('totalProfit').className = 'summary-value ' + (totalProfit >= 0 ? 'red' : 'blue');
+}
+
+function deleteStock(id) {
+    if(confirm("삭제하시겠습니까?")){
+        stocks = stocks.filter(s => s.id !== id);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
         render();
-        alert("저장되었습니다!");
     }
+}
 
-    function render() {
-        let totalBuy = 0; let totalEval = 0;
-        const listDiv = document.getElementById('stockList');
-        listDiv.innerHTML = '';
-
-        stocks.forEach(s => {
-            totalBuy += (s.price * s.qty);
-            totalEval += (s.current * s.qty);
-            const profit = (s.current - s.price) * s.qty;
-            const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
-            
-            listDiv.innerHTML += `<div class="stock-item">
-                <strong>${s.name}</strong> (${s.qty}주) <br>
-                수익: <span class="${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원 (${rate}%)</span>
-                <button onclick="deleteStock(${s.id})" style="float:right; background:none; border:none; color:red; cursor:pointer;">[삭제]</button>
-            </div>`;
-        });
-
-        const totalProfit = totalEval - totalBuy;
-        const totalRate = totalBuy === 0 ? 0 : ((totalProfit / totalBuy) * 100).toFixed(2);
-        document.getElementById('totalBuy').innerText = totalBuy.toLocaleString() + '원';
-        document.getElementById('totalEval').innerText = totalEval.toLocaleString() + '원';
-        document.getElementById('totalProfit').innerText = `${totalProfit.toLocaleString()}원 (${totalRate}%)`;
-        document.getElementById('totalProfit').className = 'summary-value ' + (totalProfit >= 0 ? 'red' : 'blue');
-    }
-
-    function deleteStock(id) {
-        if(confirm("정말 삭제할까요?")) {
-            stocks = stocks.filter(s => s.id !== id);
-            localStorage.setItem('myStocks', JSON.stringify(stocks));
-            render();
-        }
-    }
-    window.onload = render;
+window.onload = render;
 </script>
+
 </body>
 </html>
