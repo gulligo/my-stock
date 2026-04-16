@@ -6,46 +6,54 @@
     <title>나의 주식 관리 전문 앱</title>
     <style>
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; line-height: 1.6; }
-        .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #333; }
+        .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; color: #333; margin-top: 0; }
         .input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
         input, select { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        button { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        button.save-btn { padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         
         .tab-menu { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: #ddd; border-radius: 5px; font-weight: bold; }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: #ddd; border-radius: 8px; font-weight: bold; font-size: 15px; }
         .tab-btn.active { background: #007bff; color: white; }
 
-        .stock-item { border-left: 5px solid #ccc; padding: 15px; margin-bottom: 10px; background: #fff; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        /* 종목 아이템 스타일 */
+        .stock-item { background: #fff; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); overflow: hidden; border-left: 5px solid #ccc; }
         .status-hold { border-left-color: #28a745; }
         .status-done { border-left-color: #6c757d; }
-        
+
+        /* 클릭하는 요약 헤더 */
+        .item-header { padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: #fff; }
+        .item-header:active { background: #f9f9f9; }
+
+        /* 상세 내용 (기본적으로 숨김) */
+        .item-detail { padding: 0 15px 15px 15px; display: none; background: #fafafa; border-top: 1px solid #eee; }
+        .item-detail.show { display: block; }
+
         .red { color: #d9534f; font-weight: bold; } /* 수익 */
         .blue { color: #0275d8; font-weight: bold; } /* 손실 */
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px; margin-top: 5px; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 14px; margin-top: 10px; padding: 10px; background: #fff; border-radius: 5px; }
+        .label { color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📈 종목 등록/수정</h2>
+    <h2>📈 종목 등록</h2>
     <div class="input-box">
-        <input type="text" id="name" placeholder="종목명">
+        <input type="text" id="name" placeholder="종목명 (예: 삼성전자)">
         <select id="status">
             <option value="hold">보유 중</option>
             <option value="done">매매 완료</option>
         </select>
-        <div id="date-inputs" class="input-box">
-            <label>매수일</label>
-            <input type="date" id="buyDate">
-            <label id="sellLabel" style="display:none;">매도일</label>
-            <input type="date" id="sellDate" style="display:none;">
+        <div class="input-box">
+            <input type="date" id="buyDate" title="매수일">
+            <input type="date" id="sellDate" id="sellDateInput" style="display:none;" title="매도일">
         </div>
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="current" placeholder="현재가 (또는 매도가)">
         <input type="number" id="qty" placeholder="수량">
     </div>
-    <button onclick="saveStock()">기록 저장하기</button>
+    <button class="save-btn" onclick="saveStock()">기록 저장하기</button>
 </div>
 
 <div class="tab-menu">
@@ -57,11 +65,9 @@
     </div>
 
 <script>
-    // 상태 선택에 따라 매도일 입력창 보여주기
+    // 상태 선택에 따라 매도일 입력창 제어
     document.getElementById('status').addEventListener('change', function() {
-        const isDone = this.value === 'done';
-        document.getElementById('sellLabel').style.display = isDone ? 'block' : 'none';
-        document.getElementById('sellDate').style.display = isDone ? 'block' : 'none';
+        document.getElementById('sellDate').style.display = this.value === 'done' ? 'block' : 'none';
     });
 
     let stocks = JSON.parse(localStorage.getItem('myStocks')) || [];
@@ -78,11 +84,17 @@
             qty: Number(document.getElementById('qty').value)
         };
 
-        if(!stock.name || !stock.price) return alert("필수 정보를 입력하세요.");
+        if(!stock.name || !stock.price) return alert("종목명과 매수가를 입력해주세요.");
 
         stocks.push(stock);
         localStorage.setItem('myStocks', JSON.stringify(stocks));
-        render();
+        render(stock.status);
+        
+        // 입력창 초기화
+        document.getElementById('name').value = '';
+        document.getElementById('price').value = '';
+        document.getElementById('current').value = '';
+        document.getElementById('qty').value = '';
         alert("저장되었습니다!");
     }
 
@@ -92,6 +104,11 @@
 
         const filtered = stocks.filter(s => s.status === filter);
 
+        if(filtered.length === 0) {
+            listDiv.innerHTML = '<p style="text-align:center; color:#888;">데이터가 없습니다.</p>';
+            return;
+        }
+
         filtered.forEach(s => {
             const profit = (s.current - s.price) * s.qty;
             const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
@@ -100,20 +117,46 @@
             const item = document.createElement('div');
             item.className = `stock-item status-${s.status}`;
             
+            // 요약 헤더와 상세 내용을 포함한 HTML
             item.innerHTML = `
-                <div style="display:flex; justify-content:space-between;">
+                <div class="item-header" onclick="toggleDetail(this)">
                     <strong>${s.name}</strong>
-                    <span class="${colorClass}">${profit.toLocaleString()}원 (${rate}%)</span>
+                    <span class="${colorClass}">${profit >= 0 ? '+' : ''}${profit.toLocaleString()}원 (${rate}%) ▼</span>
                 </div>
-                <div class="info-grid">
-                    <div>매수일: ${s.buyDate}</div>
-                    ${s.status === 'done' ? `<div>매도일: ${s.sellDate}</div>` : `<div>수량: ${s.qty}주</div>`}
-                    <div>매수가: ${s.price.toLocaleString()}원</div>
-                    <div>${s.status === 'done' ? '매도가' : '현재가'}: ${s.current.toLocaleString()}원</div>
+                <div class="item-detail">
+                    <div class="info-grid">
+                        <div><span class="label">매수일</span><br>${s.buyDate || '-'}</div>
+                        <div><span class="label">${s.status === 'done' ? '매도일' : '수량'}</span><br>${s.status === 'done' ? (s.sellDate || '-') : s.qty + '주'}</div>
+                        <div><span class="label">매수가</span><br>${s.price.toLocaleString()}원</div>
+                        <div><span class="label">${s.status === 'done' ? '매도가' : '현재가'}</span><br>${s.current.toLocaleString()}원</div>
+                    </div>
+                    <button style="margin-top:10px; padding:8px; background:#ff4d4d; color:white; border:none; border-radius:5px; width:100%; font-size:12px;" onclick="deleteStock(${s.id})">기록 삭제</button>
                 </div>
             `;
             listDiv.appendChild(item);
         });
+    }
+
+    // 상세 내용 열고 닫기 함수
+    function toggleDetail(element) {
+        const detail = element.nextElementSibling;
+        const isVisible = detail.classList.contains('show');
+        
+        // 다른 열려있는 상세창 닫기 (선택 사항)
+        document.querySelectorAll('.item-detail').forEach(d => d.classList.remove('show'));
+        
+        if (!isVisible) {
+            detail.classList.add('show');
+        }
+    }
+
+    function deleteStock(id) {
+        if(confirm("이 기록을 삭제하시겠습니까?")) {
+            stocks = stocks.filter(s => s.id !== id);
+            localStorage.setItem('myStocks', JSON.stringify(stocks));
+            const currentTab = document.querySelector('.tab-btn.active').innerText === '보유 종목' ? 'hold' : 'done';
+            render(currentTab);
+        }
     }
 
     function showTab(type) {
@@ -122,8 +165,8 @@
         render(type);
     }
 
-    // 초기 실행
-    render();
+    // 처음 앱 실행 시 보유 종목 탭 보여주기
+    window.onload = () => render('hold');
 </script>
 
 </body>
