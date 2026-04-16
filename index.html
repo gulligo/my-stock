@@ -1,49 +1,3 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나의 주식 장부</title>
-    <style>
-        body { font-family: 'Pretendard', sans-serif; background-color: #f8f9fa; padding: 20px; color: #333; }
-        .container { max-width: 450px; margin: auto; background: white; border-radius: 20px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .header { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        .header h2 { margin: 0; font-size: 1.3rem; }
-        .input-group { margin-bottom: 15px; }
-        input { width: 100%; padding: 15px; border: 1px solid #e9ecef; border-radius: 12px; font-size: 1rem; background-color: #f1f3f5; outline: none; transition: 0.3s; }
-        input:focus { border-color: #007bff; background-color: #fff; }
-        input[readonly] { background-color: #e9ecef; color: #868e96; cursor: not-allowed; }
-        .btn-save { width: 100%; padding: 18px; background-color: #007bff; color: white; border: none; border-radius: 15px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <div class="header">
-        <span>📈</span>
-        <h2>종목 등록</h2>
-    </div>
-
-    <div class="input-group">
-        <input type="text" id="stockName" placeholder="종목명 (예: 삼성전자)" onchange="autoFetchPrice()">
-    </div>
-
-    <div class="input-group">
-        <input type="text" id="currentPrice" placeholder="현재시세 (자동)" readonly>
-    </div>
-
-    <div class="input-group">
-        <input type="number" id="buyPrice" placeholder="나의 매수 단가">
-    </div>
-
-    <div class="input-group">
-        <input type="number" id="stockCount" placeholder="보유 수량">
-    </div>
-
-    <button class="btn-save" onclick="saveData()">내 장부에 저장하기</button>
-</div>
-
-<script>
     async function autoFetchPrice() {
         const name = document.getElementById('stockName').value.trim();
         const priceInput = document.getElementById('currentPrice');
@@ -52,34 +6,23 @@
         priceInput.value = "조회 중...";
 
         try {
-            // 야후 파이낸스(Yahoo Finance) 데이터를 우회하여 가져오는 더 안정적인 방식
             const response = await fetch(`https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(name)}&lang=ko-KR`);
             const data = await response.json();
             
             if (data.quotes && data.quotes.length > 0) {
-                const symbol = data.quotes[0].symbol; // 종목 코드 추출 (예: 005930.KS)
-                
+                const symbol = data.quotes[0].symbol;
                 const priceResponse = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1m&range=1d`);
                 const priceData = await priceResponse.json();
                 const nowPrice = priceData.chart.result[0].meta.regularMarketPrice;
 
-                // 결과 표시
+                // 이제 진짜 실시간 가격만 표시합니다!
                 priceInput.value = Math.floor(nowPrice).toLocaleString() + " 원";
             } else {
                 priceInput.value = "종목 확인 불가";
             }
         } catch (error) {
             console.error(error);
-            // 만약 API가 막히면 테스트용으로라도 값이 나오게 설정
-            if(name.includes("삼성")) priceInput.value = "78,200 원";
-            else priceInput.value = "조회 실패";
+            // 실패했을 때 엉뚱한 숫자가 나오지 않도록 "재시도"라고만 띄웁니다.
+            priceInput.value = "다시 입력해주세요";
         }
     }
-
-    function saveData() {
-        alert("장부에 저장되었습니다!");
-    }
-</script>
-
-</body>
-</html>
