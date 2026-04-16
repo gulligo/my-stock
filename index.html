@@ -1,92 +1,137 @@
+  https://gulligo.github.io/my-stock/
+
  <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>주식 매매 관리</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f4f4f9; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #333; }
-        .input-group { margin-bottom: 10px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 5px; }
-        button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; }
-        button:hover { background-color: #0056b3; }
-        .result-list { margin-top: 20px; border-top: 2px solid #eee; padding-top: 20px; }
-        .stock-item { background: #fff; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
-        .profit { color: red; font-weight: bold; }
-        .loss { color: blue; font-weight: bold; }
-    </style>
+<meta charset="UTF-8">
+<title>주식 수익 관리</title>
+<style>
+body{font-family:sans-serif;padding:20px;background:#f5f6fa}
+h2{margin-bottom:10px}
+input,button,select{width:100%;padding:10px;margin-top:8px;font-size:16px}
+#result{margin-top:15px;font-size:20px;font-weight:bold}
+.list{margin-top:20px}
+.item{padding:10px;margin-top:6px;border-radius:10px;background:#fff}
+.red{color:red}
+.blue{color:blue}
+.summary{margin-top:20px;font-size:18px;font-weight:bold}
+</style>
 </head>
 <body>
 
-<div class="container">
-    <h2>나의 주식 관리</h2>
-    
-    <div class="input-group">
-        <label>종목명</label>
-        <input type="text" id="stockName" placeholder="예: 삼성전자">
-    </div>
-    <div class="input-group">
-        <label>매수가 (평균단가)</label>
-        <input type="number" id="buyPrice" placeholder="0">
-    </div>
-    <div class="input-group">
-        <label>현재가</label>
-        <input type="number" id="currentPrice" placeholder="0">
-    </div>
-    <div class="input-group">
-        <label>보유 수량</label>
-        <input type="number" id="stockCount" placeholder="0">
-    </div>
-    
-    <button onclick="addStock()">종목 추가 및 계산</button>
+<h2>📈 주식 수익 관리</h2>
 
-    <div class="result-list" id="resultList">
-        </div>
-</div>
+<select id="type">
+  <option value="buy">매수</option>
+  <option value="sell">매도</option>
+</select>
+
+<input type="text" id="name" placeholder="종목명">
+<input type="number" id="price" placeholder="가격">
+<input type="number" id="qty" placeholder="수량">
+
+<button onclick="addTrade()">저장</button>
+
+<div id="result"></div>
+
+<div class="summary" id="summary"></div>
+
+<div class="list" id="list"></div>
 
 <script>
-    function addStock() {
-        const name = document.getElementById('stockName').value;
-        const buyPrice = Number(document.getElementById('buyPrice').value);
-        const currentPrice = Number(document.getElementById('currentPrice').value);
-        const count = Number(document.getElementById('stockCount').value);
+let trades = JSON.parse(localStorage.getItem("trades") || "[]");
 
-        if(!name || !buyPrice || !currentPrice || !count) {
-            alert("모든 항목을 입력해주세요.");
-            return;
-        }
+function save(){
+  localStorage.setItem("trades", JSON.stringify(trades));
+}
 
-        // 계산 로직
-        const totalBuy = buyPrice * count;
-        const totalCurrent = currentPrice * count;
-        const profitMoney = totalCurrent - totalBuy;
-        const profitRate = ((profitMoney / totalBuy) * 100).toFixed(2);
+function addTrade(){
+  let type = document.getElementById("type").value;
+  let name = document.getElementById("name").value;
+  let price = parseFloat(document.getElementById("price").value);
+  let qty = parseFloat(document.getElementById("qty").value);
 
-        // 결과 표시용 HTML 생성
-        const resultDiv = document.getElementById('resultList');
-        const stockItem = document.createElement('div');
-        stockItem.className = 'stock-item';
-        
-        const profitClass = profitMoney >= 0 ? 'profit' : 'loss';
+  if(!name || !price || !qty){
+    alert("값 입력");
+    return;
+  }
 
-        stockItem.innerHTML = `
-            <strong>${name}</strong> (${count}주)<br>
-            투자금: ${totalBuy.toLocaleString()}원<br>
-            현재가치: ${totalCurrent.toLocaleString()}원<br>
-            수익: <span class="${profitClass}">${profitMoney.toLocaleString()}원 (${profitRate}%)</span>
-        `;
+  let trade = {
+    date: new Date().toLocaleString(),
+    type, name, price, qty
+  };
 
-        resultDiv.prepend(stockItem);
+  trades.push(trade);
+  save();
+  render();
+}
 
-        // 입력창 초기화
-        document.getElementById('stockName').value = '';
-        document.getElementById('buyPrice').value = '';
-        document.getElementById('currentPrice').value = '';
-        document.getElementById('stockCount').value = '';
+function render(){
+  let list = document.getElementById("list");
+  let summary = document.getElementById("summary");
+
+  list.innerHTML = "";
+
+  let grouped = {};
+
+  trades.forEach(t=>{
+    if(!grouped[t.name]) grouped[t.name]=[];
+    grouped[t.name].push(t);
+  });
+
+  let totalProfit = 0;
+  let totalCount = 0;
+
+  for(let name in grouped){
+    let arr = grouped[name];
+
+    let buyTotal = 0;
+    let buyQty = 0;
+    let sellTotal = 0;
+    let sellQty = 0;
+
+    arr.forEach(t=>{
+      if(t.type=="buy"){
+        buyTotal += t.price * t.qty;
+        buyQty += t.qty;
+      }else{
+        sellTotal += t.price * t.qty;
+        sellQty += t.qty;
+      }
+    });
+
+    let profit = sellTotal - buyTotal;
+    let rate = buyTotal ? (profit / buyTotal * 100) : 0;
+
+    if(buyQty>0 || sellQty>0){
+      totalProfit += profit;
+      totalCount++;
     }
+
+    let div = document.createElement("div");
+    div.className = "item";
+
+    let color = profit>=0 ? "red" : "blue";
+
+    div.innerHTML = `
+      <b>${name}</b><br>
+      수익금: <span class="${color}">${Math.floor(profit)}원</span><br>
+      수익률: <span class="${color}">${rate.toFixed(2)}%</span><br>
+      <small>${arr.map(t=>`${t.type} ${t.qty}@${t.price}`).join(" | ")}</small>
+    `;
+
+    list.appendChild(div);
+  }
+
+  let avg = totalCount ? totalProfit / totalCount : 0;
+
+  summary.innerHTML = `
+    총 수익: ${Math.floor(totalProfit)}원<br>
+    평균 수익: ${Math.floor(avg)}원
+  `;
+}
+
+render();
 </script>
 
 </body>
