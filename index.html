@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>용용님의 통합 주식 관리 앱 v2</title>
+    <title>용용님의 통합 주식 관리 앱 v2.1</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; }
@@ -32,7 +32,12 @@
         .stock-summary { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; }
         .stock-details { padding: 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
         
-        .memo-text { font-style: italic; color: #666; background: #eee; padding: 5px; border-radius: 4px; margin-top: 5px; display: block; }
+        /* 정보 가로 정렬용 스타일 */
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .info-label { color: #666; }
+        .info-val { font-weight: bold; }
+
+        .memo-text { font-style: italic; color: #666; background: #eee; padding: 5px; border-radius: 4px; margin-top: 8px; display: block; }
         .red { color: #d9534f; }
         .blue { color: #0275d8; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin: 15px 0 8px; }
@@ -76,7 +81,7 @@
 </div>
 
 <div class="section-header">
-    <div class="section-title" id="listTitle">🟢 거래 중인 종목 (통합)</div>
+    <div class="section-title" id="listTitle">🟢 현재보유종목 (통합)</div>
 </div>
 <div id="activeList"></div>
 
@@ -111,7 +116,7 @@
         
         document.getElementById('inputSection').style.display = (acc === 'total') ? 'none' : 'block';
         document.getElementById('summaryTitle').innerText = (acc === 'total') ? "💰 통합 자산 현황" : `💰 ${accNames[acc]} 현황`;
-        document.getElementById('listTitle').innerText = (acc === 'total') ? "🟢 거래 중인 종목 (통합)" : `🟢 ${accNames[acc]} 보유 종목`;
+        document.getElementById('listTitle').innerText = (acc === 'total') ? "🟢 현재보유종목 (통합)" : `🟢 ${accNames[acc]} 보유 종목`;
         
         render();
     }
@@ -169,7 +174,7 @@
         editingId = null;
         document.getElementById('edit-msg').style.display = 'none';
         resetInputs();
-        render(); // location.reload() 대신 렌더링만 다시 해서 계좌 유지
+        render(); 
     }
 
     function render() {
@@ -193,9 +198,15 @@
                         <span class="${profit >= 0 ? 'red' : 'blue'}">${rate}%</span>
                     </div>
                     <div id="det-${s.id}" class="stock-details">
-                        <div><b>평단:</b> ${s.price.toLocaleString()}원 &nbsp;&nbsp; | &nbsp;&nbsp; <b>현재:</b> ${s.current.toLocaleString()}원</div>
-                        <div><b>수량:</b> ${s.qty}주 &nbsp;&nbsp; | &nbsp;&nbsp; <b class="${profit >= 0 ? 'red' : 'blue'}">손익:</b> ${profit.toLocaleString()}원</div>
-                        <div style="font-size:12px; color:#666; margin-top:5px;">📅 매수일: ${s.buyDate || '-'} ${s.sellDate ? ' | 매도일: ' + s.sellDate : ''}</div>
+                        <div class="info-row">
+                            <span><span class="info-label">평단:</span> <span class="info-val">${s.price.toLocaleString()}원</span></span>
+                            <span><span class="info-label">현재:</span> <span class="info-val">${s.current.toLocaleString()}원</span></span>
+                        </div>
+                        <div class="info-row">
+                            <span><span class="info-label">수량:</span> <span class="info-val">${s.qty}주</span></span>
+                            <span><span class="info-label">손익:</span> <span class="info-val ${profit >= 0 ? 'red' : 'blue'}">${profit.toLocaleString()}원</span></span>
+                        </div>
+                        <div style="font-size:12px; color:#666; margin-top:8px; border-top: 1px dashed #ddd; padding-top: 5px;">📅 매수일: ${s.buyDate || '-'} ${s.sellDate ? ' | 매도일: ' + s.sellDate : ''}</div>
                         ${s.memo ? `<span class="memo-text">📝 ${s.memo}</span>` : ''}
                         ${currentAcc !== 'total' ? `
                         <div style="display:flex; gap:5px; margin-top:10px;">
