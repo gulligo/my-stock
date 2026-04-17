@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>용용님의 통합 주식 관리 앱</title>
+    <title>용용님의 통합 주식 관리 앱 v2</title>
     <style>
         * { box-sizing: border-box; }
         body { font-family: 'Malgun Gothic', sans-serif; padding: 15px; background-color: #f0f2f5; color: #333; }
         .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; font-size: 18px; margin-top: 0; }
         
-        /* 계좌 탭 스타일 */
         .tabs { display: flex; gap: 5px; margin-bottom: 15px; background: #ddd; padding: 5px; border-radius: 10px; }
         .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 7px; cursor: pointer; font-weight: bold; font-size: 13px; background: none; }
         .tab-btn.active { background: white; color: #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -31,11 +30,9 @@
         
         .stock-item { background: white; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .stock-summary { padding: 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: bold; }
-        .stock-details { padding: 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; }
+        .stock-details { padding: 15px; display: none; background: #fafafa; font-size: 14px; border-top: 1px solid #eee; position: relative; }
         
-        .target-reached { background-color: #ffebee; border: 2px solid #f44336; }
         .memo-text { font-style: italic; color: #666; background: #eee; padding: 5px; border-radius: 4px; margin-top: 5px; display: block; }
-        
         .red { color: #d9534f; }
         .blue { color: #0275d8; }
         .section-header { display: flex; justify-content: space-between; align-items: center; margin: 15px 0 8px; }
@@ -69,11 +66,10 @@
         <input type="number" id="price" placeholder="매수 단가">
         <input type="number" id="qty" placeholder="수량">
         <input type="number" id="current" placeholder="현재가 (시세 자동대기)">
-        <input type="number" id="target" placeholder="목표가 (도달 시 알림)">
         <textarea id="memo" placeholder="메모" rows="2"></textarea>
         <div class="date-row">
             <div><div class="date-label">📅 매수일</div><input type="date" id="buyDate"></div>
-            <div><div class="date-label">📅 매도일</div><input type="date" id="sellDate"></div>
+            <div><div class="date-label">📅 매도일 (완료 시 입력)</div><input type="date" id="sellDate"></div>
         </div>
     </div>
     <button class="btn-main" onclick="saveStock()">기록 저장하기</button>
@@ -81,9 +77,11 @@
 
 <div class="section-header">
     <div class="section-title" id="listTitle">🟢 거래 중인 종목 (통합)</div>
-    <button class="btn-sub" style="max-width:100px" onclick="sortStocks()">수익률 정렬</button>
 </div>
 <div id="activeList"></div>
+
+<button class="btn-main" style="background:#6c757d; margin-top:20px;" onclick="toggleSoldList()">📂 거래 완료 종목 보기 ▼</button>
+<div id="soldList" style="display:none; margin-top:10px;"></div>
 
 <script>
     let currentAcc = 'total';
@@ -94,7 +92,6 @@
     };
     let accNames = JSON.parse(localStorage.getItem('accNames')) || { 1: "계좌1", 2: "계좌2", 3: "계좌3" };
     let editingId = null;
-    let sortOrder = true;
 
     window.onload = function() {
         document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
@@ -106,10 +103,12 @@
         currentAcc = acc;
         editingId = null;
         document.getElementById('edit-msg').style.display = 'none';
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        resetInputs();
         
-        // 통합 탭에서는 입력창 숨김
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        if(acc === 'total') document.querySelector('.tab-btn').classList.add('active');
+        else document.getElementById('acc'+acc).classList.add('active');
+        
         document.getElementById('inputSection').style.display = (acc === 'total') ? 'none' : 'block';
         document.getElementById('summaryTitle').innerText = (acc === 'total') ? "💰 통합 자산 현황" : `💰 ${accNames[acc]} 현황`;
         document.getElementById('listTitle').innerText = (acc === 'total') ? "🟢 거래 중인 종목 (통합)" : `🟢 ${accNames[acc]} 보유 종목`;
@@ -147,67 +146,69 @@
         const qty = Number(document.getElementById('qty').value);
         if (!name || !price || !qty) return alert("필수 정보를 입력하세요.");
 
-        let stocks = allStocks[currentAcc];
         const stockData = {
             id: editingId || Date.now(),
             name: name,
             code: document.getElementById('code').value,
             price: price, qty: qty,
             current: Number(document.getElementById('current').value),
-            target: Number(document.getElementById('target').value),
             memo: document.getElementById('memo').value,
             buyDate: document.getElementById('buyDate').value,
             sellDate: document.getElementById('sellDate').value
         };
 
         if (editingId) {
-            const idx = stocks.findIndex(s => s.id === editingId);
-            stocks[idx] = stockData;
+            const idx = allStocks[currentAcc].findIndex(s => s.id === editingId);
+            allStocks[currentAcc][idx] = stockData;
         } else {
-            stocks.unshift(stockData);
+            allStocks[currentAcc].unshift(stockData);
         }
 
-        localStorage.setItem('stocks_' + currentAcc, JSON.stringify(stocks));
+        localStorage.setItem('stocks_' + currentAcc, JSON.stringify(allStocks[currentAcc]));
         alert("저장 완료!");
-        location.reload();
+        editingId = null;
+        document.getElementById('edit-msg').style.display = 'none';
+        resetInputs();
+        render(); // location.reload() 대신 렌더링만 다시 해서 계좌 유지
     }
 
     function render() {
         const activeList = document.getElementById('activeList');
-        activeList.innerHTML = '';
+        const soldList = document.getElementById('soldList');
+        activeList.innerHTML = ''; soldList.innerHTML = '';
+        
         let tBuy = 0, tEval = 0;
-
-        // 통합일 경우 모든 계좌 합산, 아닐 경우 해당 계좌만
-        let displayList = [];
-        if (currentAcc === 'total') {
-            displayList = [...allStocks[1], ...allStocks[2], ...allStocks[3]];
-        } else {
-            displayList = allStocks[currentAcc];
-        }
+        let displayList = (currentAcc === 'total') 
+            ? [...allStocks[1], ...allStocks[2], ...allStocks[3]] 
+            : allStocks[currentAcc];
 
         displayList.forEach(s => {
             const profit = (s.current - s.price) * s.qty;
             const rate = ((s.current - s.price) / s.price * 100).toFixed(2);
-            const isTargetReached = s.target > 0 && s.current >= s.target;
 
-            activeList.innerHTML += `
-                <div class="stock-item ${isTargetReached ? 'target-reached' : ''}">
+            const html = `
+                <div class="stock-item">
                     <div class="stock-summary" onclick="toggleDetail(${s.id})">
-                        <span>${s.name} ${isTargetReached ? '🚩' : ''}</span>
+                        <span>${s.name}</span>
                         <span class="${profit >= 0 ? 'red' : 'blue'}">${rate}%</span>
                     </div>
                     <div id="det-${s.id}" class="stock-details">
-                        <div><b>평단:</b> ${s.price.toLocaleString()}원 | <b>수량:</b> ${s.qty}주</div>
-                        <div class="${profit >= 0 ? 'red' : 'blue'}"><b>손익:</b> ${profit.toLocaleString()}원</div>
+                        <div><b>평단:</b> ${s.price.toLocaleString()}원 &nbsp;&nbsp; | &nbsp;&nbsp; <b>현재:</b> ${s.current.toLocaleString()}원</div>
+                        <div><b>수량:</b> ${s.qty}주 &nbsp;&nbsp; | &nbsp;&nbsp; <b class="${profit >= 0 ? 'red' : 'blue'}">손익:</b> ${profit.toLocaleString()}원</div>
+                        <div style="font-size:12px; color:#666; margin-top:5px;">📅 매수일: ${s.buyDate || '-'} ${s.sellDate ? ' | 매도일: ' + s.sellDate : ''}</div>
+                        ${s.memo ? `<span class="memo-text">📝 ${s.memo}</span>` : ''}
                         ${currentAcc !== 'total' ? `
                         <div style="display:flex; gap:5px; margin-top:10px;">
-                            <button class="btn-sub" style="background:#28a745" onclick="fillEdit(${s.id})">수정</button>
+                            <button class="btn-sub" style="background:#28a745" onclick="fillEdit(${s.id})">수정/매도</button>
                             <button class="btn-sub" style="background:#ff4d4d" onclick="deleteStock(${s.id})">삭제</button>
                         </div>` : ''}
                     </div>
                 </div>`;
-            
-            if (!s.sellDate) {
+
+            if (s.sellDate) {
+                soldList.innerHTML += html;
+            } else {
+                activeList.innerHTML += html;
                 tBuy += s.price * s.qty;
                 tEval += s.current * s.qty;
             }
@@ -229,7 +230,6 @@
         document.getElementById('price').value = s.price;
         document.getElementById('qty').value = s.qty;
         document.getElementById('current').value = s.current;
-        document.getElementById('target').value = s.target || "";
         document.getElementById('memo').value = s.memo || "";
         document.getElementById('buyDate').value = s.buyDate;
         document.getElementById('sellDate').value = s.sellDate || "";
@@ -245,15 +245,25 @@
         }
     }
 
+    function resetInputs() {
+        document.getElementById('name').value = "";
+        document.getElementById('code').value = "";
+        document.getElementById('price').value = "";
+        document.getElementById('qty').value = "";
+        document.getElementById('current').value = "";
+        document.getElementById('memo').value = "";
+        document.getElementById('sellDate').value = "";
+        document.getElementById('buyDate').value = new Date().toISOString().split('T')[0];
+    }
+
     function toggleDetail(id) {
         const el = document.getElementById('det-' + id);
         el.style.display = (el.style.display === 'block') ? 'none' : 'block';
     }
 
-    function sortStocks() {
-        let list = (currentAcc === 'total') ? [] : allStocks[currentAcc];
-        // 정렬 로직 (간략화)
-        render();
+    function toggleSoldList() {
+        const el = document.getElementById('soldList');
+        el.style.display = (el.style.display === 'block') ? 'none' : 'block';
     }
 </script>
 </body>
